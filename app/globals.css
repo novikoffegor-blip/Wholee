@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  border-color: #e5e0d6;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #faf8f3;
+  color: #0a0a0a;
+}
+
+::selection {
+  background: #0a0a0a;
+  color: #faf8f3;
+}
+
+@layer base {
+  input,
+  select,
+  textarea {
+    border-radius: 0.75rem;
+  }
+
+  details,
+  dialog,
+  article[class*="border"],
+  div[class*="border"][class*="p-"],
+  button[class*="border"] {
+    border-radius: 0.875rem;
+  }
+
+  img {
+    border-radius: inherit;
+  }
+}
