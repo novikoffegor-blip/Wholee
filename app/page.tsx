@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Building2, PackageCheck, ShoppingBag, Store } from "lucide-react";
+import { ArrowRight, Building2, ShoppingBag, Store } from "lucide-react";
 
+import { PopularBrands } from "@/components/brands/popular-brands";
 import { HomeSearch } from "@/components/catalog/home-search";
 import { Button } from "@/components/ui/button";
 import { products } from "@/lib/mock";
@@ -19,27 +20,21 @@ const benefits = [
   }
 ];
 
-const stats = [
-  { value: "120+", label: "брендов" },
-  { value: "8 500+", label: "товаров" },
-  { value: "650+", label: "байеров" }
-];
-
 const categories = [
   {
     title: "Обувь",
     description: "Кроссовки, ботинки, туфли, сапоги, лоферы и кеды",
-    image: "/images/categories/shoes.svg"
+    image: "/images/categories/generated/shoes-still-life.png"
   },
   {
     title: "Сумки",
     description: "Сумки, рюкзаки, клатчи, шопперы и поясные модели",
-    image: "/images/categories/bags.svg"
+    image: "/images/categories/generated/bags-still-life.png"
   },
   {
     title: "Аксессуары",
     description: "Ремни, кошельки, перчатки и сезонные дополнения",
-    image: "/images/categories/accessories.svg"
+    image: "/images/categories/generated/accessories-still-life.png"
   }
 ];
 
@@ -75,7 +70,11 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {featuredProducts.map((product) => (
-              <div key={product.id} className="group">
+              <Link
+                key={product.id}
+                href={`/products/${product.id}`}
+                className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+              >
                 <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-surface">
                   <Image
                     src={product.images[0]}
@@ -88,7 +87,7 @@ export default function HomePage() {
                 </div>
                 <p className="mt-3 text-sm font-medium">{product.name}</p>
                 <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted">{product.category}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -118,14 +117,37 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="border-b border-border py-14">
-        <div className="container grid gap-8 md:grid-cols-3">
-          {stats.map((item) => (
-            <div key={item.label} className="border-l border-border pl-6">
-              <p className="text-4xl font-medium tracking-normal">{item.value}</p>
-              <p className="mt-2 text-sm uppercase tracking-[0.18em] text-muted">{item.label}</p>
+      <section className="border-b border-border py-20 md:py-24">
+        <div className="container grid gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-end">
+          <div className="max-w-3xl">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted">Сообщество</p>
+            <h2 className="mt-5 text-3xl font-medium tracking-normal md:text-5xl">
+              Присоединяйтесь к профессиональному сообществу fashion-опта
+            </h2>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-muted">
+              Создаём пространство, где поставщики и байеры находят друг друга, обсуждают условия и развивают
+              долгосрочное сотрудничество.
+            </p>
+            <Button asChild size="lg" className="mt-8">
+              <Link href="/register">
+                Присоединиться
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <div>
+            <p className="mb-5 text-sm text-muted">Целевой масштаб сообщества Wholee Store</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border-t border-border pt-5">
+                <p className="text-4xl font-medium tracking-normal md:text-5xl">500+</p>
+                <p className="mt-3 text-sm uppercase tracking-[0.18em] text-muted">поставщиков</p>
+              </div>
+              <div className="border-t border-border pt-5">
+                <p className="text-4xl font-medium tracking-normal md:text-5xl">1000+</p>
+                <p className="mt-3 text-sm uppercase tracking-[0.18em] text-muted">байеров</p>
+              </div>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
@@ -168,15 +190,17 @@ export default function HomePage() {
         </div>
       </section>
 
+      <PopularBrands />
+
       <section className="py-20 md:py-28">
         <div className="container grid gap-10 md:grid-cols-[1fr_0.7fr] md:items-center">
           <div className="max-w-3xl">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted">Старт</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-muted">Профессиональная закупка</p>
             <h2 className="mt-5 text-3xl font-medium tracking-normal md:text-4xl">
-              Запустите оптовые продажи и закупки в одном премиальном кабинете
+              Соберите ассортимент для своего магазина
             </h2>
             <p className="mt-6 text-lg leading-8 text-muted">
-              На следующем шаге добавим каталог с фильтрами, карточки товаров и первые сценарии для байера и бренда.
+              Сравнивайте коллекции, оптовые цены и минимальные партии поставщиков в едином каталоге.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row md:justify-end">
@@ -187,9 +211,9 @@ export default function HomePage() {
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="/for-brands">
-                Брендам
-                <PackageCheck className="h-4 w-4" />
+              <Link href="/catalog">
+                Открыть каталог
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>

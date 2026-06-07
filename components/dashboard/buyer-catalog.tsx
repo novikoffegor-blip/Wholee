@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { Search, ShoppingCart } from "lucide-react";
+import { CheckCircle2, Search, ShoppingCart } from "lucide-react";
 
+import { CartAddedToast } from "@/components/cart/cart-added-toast";
+import { FavoriteButton } from "@/components/products/favorite-button";
 import { Button } from "@/components/ui/button";
 import { productCategories } from "@/lib/catalog/search";
-import { buyerCatalogProducts } from "@/lib/mock";
-import { useBuyerStore } from "@/lib/stores/buyer-store";
-import { formatPrice } from "@/lib/utils";
+import { useServerCommerceStore } from "@/lib/stores/server-commerce-store";
+import { formatPrice, getProductUnit } from "@/lib/utils";
 
 const categories = ["Все категории", ...productCategories];
 
@@ -17,10 +18,16 @@ export function BuyerCatalog() {
   const [category, setCategory] = useState("Все категории");
   const [brand, setBrand] = useState("Все бренды");
   const [message, setMessage] = useState("");
-  const addToCart = useBuyerStore((state) => state.addToCart);
+  const [addedProduct, setAddedProduct] = useState("");
+  const [addingProductId, setAddingProductId] = useState("");
+  const buyerCatalogProducts = useServerCommerceStore((state) => state.catalog);
+  const cart = useServerCommerceStore((state) => state.cart);
+  const favoriteProductIds = useServerCommerceStore((state) => state.favoriteProductIds);
+  const addToCart = useServerCommerceStore((state) => state.add);
+  const toggleFavorite = useServerCommerceStore((state) => state.toggleFavorite);
   const brands = useMemo(
     () => ["Все бренды", ...Array.from(new Set(buyerCatalogProducts.map((product) => product.brandName)))],
-    []
+    [buyerCatalogProducts]
   );
 
   const filteredProducts = buyerCatalogProducts.filter((product) => {
@@ -88,6 +95,15 @@ export function BuyerCatalog() {
                   sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                 />
+                <FavoriteButton
+                  productId={product.id}
+                  productName={product.name}
+                  initialFavorite={favoriteProductIds.includes(product.id)}
+                  isBuyer
+                  next="/dashboard/buyer/catalog"
+                  onToggle={() => toggleFavorite(product.id)}
+                  className="absolute right-3 top-3"
+                />
               </div>
               <div className="mt-4">
                 <p className="text-xs uppercase tracking-[0.16em] text-muted">{product.brandName}</p>
@@ -96,17 +112,39 @@ export function BuyerCatalog() {
                 <div className="mt-4 flex items-end justify-between gap-4">
                   <div>
                     <p className="font-medium">{formatPrice(product.wholesalePrice)}</p>
-                    <p className="mt-1 text-sm text-muted">MOQ: {product.moq} шт.</p>
+                    <p className="mt-1 text-sm leading-5 text-muted">
+                      MOQ {product.moq} {getProductUnit(product)} · шаг {product.orderStep} · остаток {product.stock}
+                    </p>
                   </div>
                   <Button
                     type="button"
                     size="sm"
-                    onClick={() => {
-                      addToCart(product);
-                      setMessage(`${product.name} добавлен в корзину. Мин. партия: ${product.moq} шт.`);
+                    disabled={product.stock < product.moq || addingProductId === product.id}
+                    onClick={async () => {
+                      setAddingProductId(product.id);
+                      try {
+                        await addToCart(product.id);
+                        setAddedProduct(product.name);
+                        setMessage(
+                          `${product.name} добавлен: MOQ ${product.moq}, шаг ${product.orderStep}, доступно ${product.stock} ${getProductUnit(product)}.`
+                        );
+                      } catch (error) {
+                        setMessage(error instanceof Error ? error.message : "Не удалось добавить товар.");
+                      } finally {
+                        setAddingProductId("");
+                      }
                     }}
                   >
-                    <ShoppingCart className="h-4 w-4" />В корзину
+                    {cart.some((item) => item.product.id === product.id) ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4" />
+                    )}
+                    {addingProductId === product.id
+                      ? "Добавляем..."
+                      : cart.some((item) => item.product.id === product.id)
+                        ? "Добавить ещё"
+                        : "В корзину"}
                   </Button>
                 </div>
               </div>
@@ -114,6 +152,7 @@ export function BuyerCatalog() {
           ))}
         </div>
       </div>
+      <CartAddedToast productName={addedProduct} visible={Boolean(addedProduct)} onClose={() => setAddedProduct("")} />
     </main>
   );
 }

@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { brandCompany, buyerCompany } from "@/lib/mock";
+import { deleteDemoSession, getDemoSession } from "@/lib/auth/client";
+import { getDashboardPath } from "@/lib/auth/redirects";
+import type { AuthRole } from "@/lib/auth/types";
+import { useServerCommerceStore } from "@/lib/stores/server-commerce-store";
+
+const demoCompanyNames = {
+  brand: "Aurora Atelier",
+  buyer: "Concept Store Volna"
+} as const;
 
 const navigation = [
   { href: "/catalog", label: "Каталог" },
@@ -18,11 +27,54 @@ const logoFocusClass = "rounded-xl focus-visible:outline-none focus-visible:ring
 
 export function Header() {
   const pathname = usePathname();
-  const dashboardCompany = pathname.startsWith("/dashboard/brand")
-    ? brandCompany.brandName
-    : pathname.startsWith("/dashboard/buyer")
-      ? buyerCompany.companyName
-      : null;
+  const router = useRouter();
+  const [role, setRole] = useState<AuthRole>("guest");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const dashboardCompany = role === "brand" || role === "buyer" ? demoCompanyNames[role] : null;
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    getDemoSession()
+      .then((session) => {
+        if (isCurrent) {
+          setRole(session.role);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setRole("guest");
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [pathname]);
+
+  async function logout() {
+    setIsLoggingOut(true);
+
+    try {
+      await deleteDemoSession();
+      useServerCommerceStore.setState({
+        role: "guest",
+        catalog: [],
+        cart: [],
+        orders: [],
+        brandProducts: [],
+        brandOrders: [],
+        favoriteProductIds: [],
+        error: null
+      });
+      window.localStorage.removeItem("wholee-demo-commerce-v1");
+      setRole("guest");
+      router.replace("/");
+      router.refresh();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
@@ -52,8 +104,11 @@ export function Header() {
               <span className="max-w-[120px] truncate text-sm font-medium text-foreground sm:max-w-[180px] md:max-w-none">
                 {dashboardCompany}
               </span>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/">Выйти</Link>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={getDashboardPath(role === "guest" ? "buyer" : role)}>Кабинет</Link>
+              </Button>
+              <Button variant="outline" size="sm" onClick={logout} disabled={isLoggingOut}>
+                Выйти
               </Button>
             </div>
           ) : (

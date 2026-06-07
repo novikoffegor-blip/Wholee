@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { TextareaField, TextField } from "@/components/auth/form-field";
 import { Button } from "@/components/ui/button";
-import { brandCompany } from "@/lib/mock";
+import { demoBrandCompany as brandCompany } from "@/lib/demo-companies";
 
 export function BrandProfileForm() {
   const [values, setValues] = useState({

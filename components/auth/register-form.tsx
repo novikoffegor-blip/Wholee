@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Check, ShoppingBag, Store } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -8,6 +9,8 @@ import { useForm } from "react-hook-form";
 import { SelectField, TextField } from "@/components/auth/form-field";
 import { PricingPlans, type PricingPlanName } from "@/components/pricing/pricing-plans";
 import { Button } from "@/components/ui/button";
+import { createDemoSession } from "@/lib/auth/client";
+import { getRegistrationRedirect } from "@/lib/auth/redirects";
 import { cn } from "@/lib/utils";
 import { registerSchema, type RegisterFormValues } from "@/lib/validations/auth";
 
@@ -31,10 +34,11 @@ const roleCards = [
   }
 ];
 
-export function RegisterForm() {
-  const [selectedRole, setSelectedRole] = useState<SelectedRole>(null);
+export function RegisterForm({ next, initialRole }: { next?: string; initialRole?: RegisterFormValues["role"] }) {
+  const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState<SelectedRole>(initialRole ?? null);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlanName | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const {
     register,
     handleSubmit,
@@ -44,7 +48,7 @@ export function RegisterForm() {
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      role: undefined,
+      role: initialRole,
       companyName: "",
       inn: "",
       ogrn: "",
@@ -64,21 +68,27 @@ export function RegisterForm() {
   function chooseRole(role: RegisterFormValues["role"]) {
     setSelectedRole(role);
     setSelectedPlan(null);
-    setSuccessMessage("");
+    setErrorMessage("");
     setValue("role", role, { shouldValidate: true });
   }
 
   function backToRoleChoice() {
     setSelectedRole(null);
     setSelectedPlan(null);
-    setSuccessMessage("");
+    setErrorMessage("");
     reset();
   }
 
-  function onSubmit(values: RegisterFormValues) {
-    // Временная заглушка до REST API: данные уже валидны, пока просто выводим их в консоль.
-    console.log("Wholee Store register payload:", { ...values, plan: selectedRole === "brand" ? selectedPlan : null });
-    setSuccessMessage("Заявка принята. Подключение аккаунта к бэкенду добавим на следующем этапе.");
+  async function onSubmit(values: RegisterFormValues) {
+    setErrorMessage("");
+
+    try {
+      await createDemoSession(values.role);
+      router.replace(getRegistrationRedirect(values.role, next));
+      router.refresh();
+    } catch {
+      setErrorMessage("Не удалось завершить регистрацию. Попробуйте ещё раз.");
+    }
   }
 
   return (
@@ -242,8 +252,8 @@ export function RegisterForm() {
             </label>
             {errors.terms?.message ? <p className="mt-2 text-sm text-red-600">{errors.terms.message}</p> : null}
 
-            {successMessage ? (
-              <p className="mt-6 border border-border px-4 py-3 text-sm text-foreground">{successMessage}</p>
+            {errorMessage ? (
+              <p className="mt-6 border border-red-200 px-4 py-3 text-sm text-red-600">{errorMessage}</p>
             ) : null}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">

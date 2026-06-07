@@ -1,13 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SlidersHorizontal, X } from "lucide-react";
 
+import { LockedPrice } from "@/components/catalog/locked-price";
+import { FavoriteButton } from "@/components/products/favorite-button";
 import { Button } from "@/components/ui/button";
 import {
-  filterProducts,
   parseCatalogQuery,
   productCategories,
   productColors,
@@ -16,8 +18,8 @@ import {
   productSeasons,
   type CatalogFilters
 } from "@/lib/catalog/search";
-import { products } from "@/lib/mock";
-import { formatPrice } from "@/lib/utils";
+import type { CatalogProductView } from "@/lib/catalog/views";
+import { formatPrice, getProductUnit } from "@/lib/utils";
 import type { ProductCategory, ProductColor, ProductGender, ProductMaterial, ProductSeason } from "@/types";
 
 function valueOrUndefined<T extends string>(value: string | null, options: readonly T[]) {
@@ -30,7 +32,7 @@ function numberOrUndefined(value: string | null) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function initialFiltersFromParams(searchParams: URLSearchParams): CatalogFilters {
+function initialFiltersFromParams(searchParams: URLSearchParams, canViewWholesalePrices: boolean): CatalogFilters {
   const query = searchParams.get("q") ?? "";
   const parsedQuery = query ? parseCatalogQuery(query) : {};
 
@@ -42,17 +44,89 @@ function initialFiltersFromParams(searchParams: URLSearchParams): CatalogFilters
     gender: valueOrUndefined<ProductGender>(searchParams.get("gender"), productGenders),
     season: valueOrUndefined<ProductSeason>(searchParams.get("season"), productSeasons),
     material: valueOrUndefined<ProductMaterial>(searchParams.get("material"), productMaterials),
-    minPrice: numberOrUndefined(searchParams.get("minPrice")),
-    maxPrice: numberOrUndefined(searchParams.get("maxPrice"))
+    minPrice: canViewWholesalePrices ? numberOrUndefined(searchParams.get("minPrice")) : undefined,
+    maxPrice: canViewWholesalePrices ? numberOrUndefined(searchParams.get("maxPrice")) : undefined
   };
 }
 
-export function CatalogView() {
-  const searchParams = useSearchParams();
-  const initialFilters = useMemo(() => initialFiltersFromParams(searchParams), [searchParams]);
-  const [filters, setFilters] = useState<CatalogFilters>(initialFilters);
+function normalize(value: string) {
+  return value.toLocaleLowerCase("ru-RU").replaceAll("ё", "е").trim();
+}
 
-  const filteredProducts = useMemo(() => filterProducts(products, filters), [filters]);
+function filterCatalogProducts(
+  products: CatalogProductView[],
+  filters: CatalogFilters,
+  canViewWholesalePrices: boolean
+) {
+  const parsedQuery = filters.query ? parseCatalogQuery(filters.query) : {};
+  const effectiveFilters = { ...parsedQuery, ...filters };
+  const normalizedQuery = normalize(filters.query ?? "");
+
+  return products.filter((product) => {
+    const matchesCategory = !effectiveFilters.category || product.category === effectiveFilters.category;
+    const matchesColor = !effectiveFilters.color || product.colors.includes(effectiveFilters.color);
+    const matchesGender = !effectiveFilters.gender || product.gender === effectiveFilters.gender;
+    const matchesSeason = !effectiveFilters.season || product.season === effectiveFilters.season;
+    const matchesMaterial = !effectiveFilters.material || product.material === effectiveFilters.material;
+    const matchesMinPrice =
+      !canViewWholesalePrices ||
+      !effectiveFilters.minPrice ||
+      (typeof product.wholesalePrice === "number" && product.wholesalePrice >= effectiveFilters.minPrice);
+    const matchesMaxPrice =
+      !canViewWholesalePrices ||
+      !effectiveFilters.maxPrice ||
+      (typeof product.wholesalePrice === "number" && product.wholesalePrice <= effectiveFilters.maxPrice);
+    const productText = normalize(
+      `${product.name} ${product.brandName} ${product.category} ${product.subcategory} ${product.colors.join(" ")} ${product.gender} ${product.season} ${product.material}`
+    );
+    const matchesQueryText =
+      !normalizedQuery ||
+      productText.includes(normalizedQuery) ||
+      Boolean(parsedQuery.category || parsedQuery.color);
+
+    return (
+      matchesCategory &&
+      matchesColor &&
+      matchesGender &&
+      matchesSeason &&
+      matchesMaterial &&
+      matchesMinPrice &&
+      matchesMaxPrice &&
+      matchesQueryText
+    );
+  });
+}
+
+interface CatalogViewProps {
+  products: CatalogProductView[];
+  canViewWholesalePrices: boolean;
+  isBuyer: boolean;
+  favoriteProductIds: string[];
+}
+
+export function CatalogView({ products, canViewWholesalePrices, isBuyer, favoriteProductIds }: CatalogViewProps) {
+  const searchParams = useSearchParams();
+  const initialFilters = useMemo(
+    () => initialFiltersFromParams(searchParams, canViewWholesalePrices),
+    [canViewWholesalePrices, searchParams]
+  );
+  const [filters, setFilters] = useState<CatalogFilters>(initialFilters);
+  const [brandFilter, setBrandFilter] = useState(searchParams.get("brand") ?? "");
+  const productBrands = useMemo(
+    () => Array.from(new Set(products.map((product) => product.brandName))).sort((a, b) => a.localeCompare(b, "ru")),
+    [products]
+  );
+  const catalogQuery = searchParams.toString();
+  const catalogNext = `/catalog${catalogQuery ? `?${catalogQuery}` : ""}`;
+
+  const filteredProducts = useMemo(() => {
+    const normalizedBrand = brandFilter.trim().toLocaleLowerCase("ru-RU");
+    const catalogProducts = filterCatalogProducts(products, filters, canViewWholesalePrices);
+
+    if (!normalizedBrand) return catalogProducts;
+
+    return catalogProducts.filter((product) => product.brandName.toLocaleLowerCase("ru-RU").includes(normalizedBrand));
+  }, [brandFilter, canViewWholesalePrices, filters, products]);
 
   function updateFilter(nextFilters: Partial<CatalogFilters>) {
     setFilters((current) => ({ ...current, ...nextFilters }));
@@ -60,6 +134,7 @@ export function CatalogView() {
 
   function resetFilters() {
     setFilters({});
+    setBrandFilter("");
   }
 
   return (
@@ -69,7 +144,8 @@ export function CatalogView() {
           <p className="text-xs uppercase tracking-[0.22em] text-muted">Каталог</p>
           <h1 className="mt-5 text-4xl font-medium tracking-normal md:text-5xl">Товары для оптовой закупки</h1>
           <p className="mt-5 text-lg leading-8 text-muted">
-            Фильтруйте товары по категории, цвету, полу, сезону, материалу и оптовой цене.
+            Фильтруйте товары по бренду, категории, цвету, полу, сезону и материалу
+            {canViewWholesalePrices ? " и оптовой цене." : "."}
           </p>
         </div>
         <p className="text-sm text-muted">{filteredProducts.length} из {products.length} товаров</p>
@@ -92,6 +168,22 @@ export function CatalogView() {
           </div>
 
           <div className="mt-6 space-y-5">
+            <label className="block">
+              <span className="text-sm font-medium">Бренд</span>
+              <input
+                type="search"
+                list="catalog-brands"
+                value={brandFilter}
+                onChange={(event) => setBrandFilter(event.target.value)}
+                placeholder="Название бренда"
+                className="mt-3 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none"
+              />
+              <datalist id="catalog-brands">
+                {productBrands.map((brand) => (
+                  <option key={brand} value={brand} />
+                ))}
+              </datalist>
+            </label>
             <FilterSelect
               label="Категория"
               value={filters.category ?? ""}
@@ -122,33 +214,36 @@ export function CatalogView() {
               onChange={(value) => updateFilter({ material: value as ProductMaterial || undefined })}
               options={productMaterials}
             />
-            <div>
-              <p className="text-sm font-medium">Цена, ₽</p>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <input
-                  value={filters.minPrice ?? ""}
-                  onChange={(event) => updateFilter({ minPrice: numberOrUndefined(event.target.value) })}
-                  type="number"
-                  min="0"
-                  placeholder="от"
-                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none"
-                />
-                <input
-                  value={filters.maxPrice ?? ""}
-                  onChange={(event) => updateFilter({ maxPrice: numberOrUndefined(event.target.value) })}
-                  type="number"
-                  min="0"
-                  placeholder="до"
-                  className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none"
-                />
+            {canViewWholesalePrices ? (
+              <div>
+                <p className="text-sm font-medium">Цена, ₽</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <input
+                    value={filters.minPrice ?? ""}
+                    onChange={(event) => updateFilter({ minPrice: numberOrUndefined(event.target.value) })}
+                    type="number"
+                    min="0"
+                    placeholder="от"
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none"
+                  />
+                  <input
+                    value={filters.maxPrice ?? ""}
+                    onChange={(event) => updateFilter({ maxPrice: numberOrUndefined(event.target.value) })}
+                    type="number"
+                    min="0"
+                    placeholder="до"
+                    className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm focus:border-foreground focus:outline-none"
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
         </aside>
 
         <section>
           <div className="mb-6 flex flex-wrap gap-2">
             {filters.query ? <FilterChip label={`Поиск: ${filters.query}`} onClear={() => updateFilter({ query: "" })} /> : null}
+            {brandFilter ? <FilterChip label={`Бренд: ${brandFilter}`} onClear={() => setBrandFilter("")} /> : null}
             {filters.category ? <FilterChip label={filters.category} onClear={() => updateFilter({ category: undefined })} /> : null}
             {filters.color ? <FilterChip label={filters.color} onClear={() => updateFilter({ color: undefined })} /> : null}
             {filters.gender ? <FilterChip label={filters.gender} onClear={() => updateFilter({ gender: undefined })} /> : null}
@@ -159,26 +254,50 @@ export function CatalogView() {
           {filteredProducts.length ? (
             <div className="grid gap-x-6 gap-y-12 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {filteredProducts.map((product) => (
-                <article key={product.id} className="group">
-                  <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-surface">
-                    <Image
-                      src={product.images[0]}
-                      alt={product.name}
-                      fill
-                      sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                <article key={product.id}>
+                  <div className="relative">
+                    <Link
+                      href={`/products/${product.id}`}
+                      className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+                    >
+                      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-surface">
+                      <Image
+                        src={product.images[0]}
+                        alt={product.name}
+                        fill
+                        sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                      </div>
+                    </Link>
+                    <FavoriteButton
+                      productId={product.id}
+                      productName={product.name}
+                      initialFavorite={favoriteProductIds.includes(product.id)}
+                      isBuyer={isBuyer}
+                      next={catalogNext}
+                      className="absolute right-3 top-3"
                     />
                   </div>
                   <div className="mt-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted">{product.brandName}</p>
                     <div className="mt-2 flex items-start justify-between gap-4">
-                      <h3 className="text-base font-medium">{product.name}</h3>
-                      <p className="shrink-0 text-sm font-medium">{formatPrice(product.wholesalePrice)}</p>
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="group rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground"
+                      >
+                        <h3 className="text-base font-medium transition-colors group-hover:text-muted">{product.name}</h3>
+                      </Link>
+                      {typeof product.wholesalePrice === "number" ? (
+                        <p className="shrink-0 text-sm font-medium">{formatPrice(product.wholesalePrice)}</p>
+                      ) : (
+                        <LockedPrice next={catalogNext} />
+                      )}
                     </div>
                     <p className="mt-2 text-sm text-muted">{product.category} · {product.colors.join(", ")}</p>
                     <p className="mt-1 text-sm text-muted">{product.material} · {product.season} · {product.gender}</p>
                     <p className="mt-3 text-sm text-muted">Размеры: {product.sizeRange}</p>
-                    <p className="mt-1 text-sm font-medium">от {product.moq} пар</p>
+                    <p className="mt-1 text-sm font-medium">от {product.moq} {getProductUnit(product)}</p>
                   </div>
                 </article>
               ))}

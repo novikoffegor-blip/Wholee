@@ -1,8 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { BarChart3, Boxes, PackageCheck, Store } from "lucide-react";
 
 import { PricingPlans } from "@/components/pricing/pricing-plans";
 import { Button } from "@/components/ui/button";
+import { createDemoSession } from "@/lib/auth/client";
 
 const benefits = [
   {
@@ -30,6 +35,24 @@ const benefits = [
 const steps = ["Зарегистрируйте компанию", "Добавьте товары и MOQ", "Получайте заказы от байеров"];
 
 export default function ForBrandsPage() {
+  const router = useRouter();
+  const [isOpeningDemo, setIsOpeningDemo] = useState(false);
+  const [demoError, setDemoError] = useState("");
+
+  async function openDemo() {
+    setIsOpeningDemo(true);
+    setDemoError("");
+
+    try {
+      await createDemoSession("brand");
+      router.push("/dashboard/brand");
+      router.refresh();
+    } catch {
+      setDemoError("Не удалось открыть демо-кабинет. Попробуйте ещё раз.");
+      setIsOpeningDemo(false);
+    }
+  }
+
   return (
     <main>
       <section className="border-b border-border py-16 md:py-24">
@@ -44,13 +67,14 @@ export default function ForBrandsPage() {
               и работать с байерами в одном чистом интерфейсе.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <Button asChild size="lg">
-                <Link href="/dashboard/brand">Открыть демо-кабинет</Link>
+              <Button size="lg" onClick={openDemo} disabled={isOpeningDemo}>
+                Открыть демо-кабинет
               </Button>
               <Button asChild variant="outline" size="lg">
                 <Link href="/register">Зарегистрироваться</Link>
               </Button>
             </div>
+            {demoError ? <p className="mt-4 text-sm text-red-600">{demoError}</p> : null}
           </div>
         </div>
       </section>

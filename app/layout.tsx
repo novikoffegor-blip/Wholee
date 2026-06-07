@@ -13,6 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "B2B маркетплейс модной оптовой торговли — Wholee Store",
   description: "Wholee Store — оптовая платформа для брендов и байеров в категориях обувь, сумки и аксессуары.",
   icons: {

@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, PackageSearch, ReceiptText, ShoppingCart } from "lucide-react";
+import { Building2, Heart, LayoutDashboard, PackageSearch, ReceiptText, ShoppingCart } from "lucide-react";
 
-import { useBuyerStore } from "@/lib/stores/buyer-store";
+import { useServerCommerceStore } from "@/lib/stores/server-commerce-store";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/dashboard/buyer", label: "Обзор", icon: LayoutDashboard },
   { href: "/dashboard/buyer/catalog", label: "Каталог", icon: PackageSearch },
+  { href: "/dashboard/buyer/favorites", label: "Избранное", icon: Heart },
   { href: "/dashboard/buyer/cart", label: "Корзина", icon: ShoppingCart },
   { href: "/dashboard/buyer/orders", label: "Мои заказы", icon: ReceiptText },
   { href: "/dashboard/buyer/profile", label: "Профиль компании", icon: Building2 }
@@ -17,7 +18,8 @@ const items = [
 
 export function BuyerSidebar() {
   const pathname = usePathname();
-  const cartCount = useBuyerStore((state) => state.cart.length);
+  const cartCount = useServerCommerceStore((state) => state.cart.length);
+  const favoritesCount = useServerCommerceStore((state) => state.favoriteProductIds.length);
 
   return (
     <aside className="border-b border-border bg-background md:w-64 md:shrink-0 md:border-b-0 md:border-r">
@@ -31,7 +33,11 @@ export function BuyerSidebar() {
             const Icon = item.icon;
             const isActive =
               item.href === "/dashboard/buyer" ? pathname === item.href : pathname.startsWith(item.href);
-            const label = item.href.endsWith("/cart") ? `${item.label} (${cartCount})` : item.label;
+            const label = item.href.endsWith("/cart")
+              ? `${item.label} (${cartCount})`
+              : item.href.endsWith("/favorites")
+                ? `${item.label} (${favoritesCount})`
+                : item.label;
 
             return (
               <Link

@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
 import { TextField } from "@/components/auth/form-field";
 import { Button } from "@/components/ui/button";
+import { createDemoSession } from "@/lib/auth/client";
+import { getLoginRedirect, getSafeNext, isDashboardPath } from "@/lib/auth/redirects";
+import type { AccountRole } from "@/lib/auth/types";
 import { loginSchema, type LoginFormValues } from "@/lib/validations/auth";
 
-export function LoginForm() {
-  const [successMessage, setSuccessMessage] = useState("");
+export function LoginForm({ next }: { next?: string }) {
+  const router = useRouter();
+  const [errorMessage, setErrorMessage] = useState("");
   const {
     register,
     handleSubmit,
@@ -23,10 +28,20 @@ export function LoginForm() {
     }
   });
 
-  function onSubmit(values: LoginFormValues) {
-    // Временная заглушка до подключения бэкенда: показываем успех и пишем данные в консоль.
-    console.log("Wholee Store login payload:", values);
-    setSuccessMessage("Данные проверены. Реальную авторизацию подключим позже.");
+  async function onSubmit(values: LoginFormValues) {
+    setErrorMessage("");
+
+    const safeNext = getSafeNext(next, "");
+    const role: AccountRole =
+      isDashboardPath(safeNext, "brand") || values.email.toLowerCase().includes("brand") ? "brand" : "buyer";
+
+    try {
+      await createDemoSession(role);
+      router.replace(getLoginRedirect(role, next));
+      router.refresh();
+    } catch {
+      setErrorMessage("Не удалось войти. Попробуйте ещё раз.");
+    }
   }
 
   return (
@@ -62,8 +77,8 @@ export function LoginForm() {
             </Link>
           </div>
 
-          {successMessage ? (
-            <p className="border border-border px-4 py-3 text-sm text-foreground">{successMessage}</p>
+          {errorMessage ? (
+            <p className="border border-red-200 px-4 py-3 text-sm text-red-600">{errorMessage}</p>
           ) : null}
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -74,7 +89,7 @@ export function LoginForm() {
         <p className="mt-8 text-center text-sm text-muted">
           Нет аккаунта?{" "}
           <Link
-            href="/register"
+            href={next ? `/register?next=${encodeURIComponent(getSafeNext(next))}` : "/register"}
             className="font-medium text-foreground focus-visible:outline-none focus-visible:underline focus-visible:underline-offset-4"
           >
             Зарегистрироваться

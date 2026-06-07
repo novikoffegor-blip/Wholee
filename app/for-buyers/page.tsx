@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Building2, PackageSearch, ReceiptText, ShoppingCart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { createDemoSession } from "@/lib/auth/client";
 
 const benefits = [
   {
@@ -33,6 +38,24 @@ const stats = [
 ];
 
 export default function ForBuyersPage() {
+  const router = useRouter();
+  const [isOpeningDemo, setIsOpeningDemo] = useState(false);
+  const [demoError, setDemoError] = useState("");
+
+  async function openDemo() {
+    setIsOpeningDemo(true);
+    setDemoError("");
+
+    try {
+      await createDemoSession("buyer");
+      router.push("/dashboard/buyer");
+      router.refresh();
+    } catch {
+      setDemoError("Не удалось открыть демо-кабинет. Попробуйте ещё раз.");
+      setIsOpeningDemo(false);
+    }
+  }
+
   return (
     <main>
       <section className="border-b border-border py-16 md:py-24">
@@ -47,13 +70,14 @@ export default function ForBuyersPage() {
               сборки корзины и контроля B2B-заказов.
             </p>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <Button asChild size="lg">
-                <Link href="/dashboard/buyer">Открыть демо-кабинет</Link>
+              <Button size="lg" onClick={openDemo} disabled={isOpeningDemo}>
+                Открыть демо-кабинет
               </Button>
               <Button asChild variant="outline" size="lg">
                 <Link href="/catalog">Смотреть каталог</Link>
               </Button>
             </div>
+            {demoError ? <p className="mt-4 text-sm text-red-600">{demoError}</p> : null}
           </div>
         </div>
       </section>

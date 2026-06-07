@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { SelectField, TextField } from "@/components/auth/form-field";
 import { Button } from "@/components/ui/button";
-import { buyerCompany } from "@/lib/mock";
+import { demoBuyerCompany as buyerCompany } from "@/lib/demo-companies";
 
 const businessTypes = ["Розничный магазин", "Маркетплейс", "Шоурум"];
 

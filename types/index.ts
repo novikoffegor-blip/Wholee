@@ -13,8 +13,23 @@ export interface Brand {
   id: string;
   name: string;
   logo: string;
+  cover: string;
+  accent: string;
+  badges: string[];
   description: string;
   category: "Обувь" | "Сумки" | "Аксессуары" | "Мультикатегория";
+  conditions: {
+    minimumOrder: string;
+    delivery: string;
+    payment: string;
+    assortment: string;
+  };
+  contact: {
+    manager: string;
+    city: string;
+    email: string;
+    phone: string;
+  };
 }
 
 export type ProductCategory = "Кроссовки" | "Лоферы" | "Ботинки" | "Туфли" | "Сумки" | "Аксессуары";
@@ -22,6 +37,7 @@ export type ProductColor = "чёрный" | "белый" | "бежевый" | "�
 export type ProductGender = "Женское" | "Мужское" | "Унисекс";
 export type ProductSeason = "Лето" | "Зима" | "Демисезон";
 export type ProductMaterial = "кожа" | "замша" | "текстиль" | "эко-кожа";
+export type ProductUnit = "пар" | "шт.";
 
 export interface Product {
   id: string;
@@ -34,6 +50,10 @@ export interface Product {
   wholesalePrice: number;
   retailPrice: number;
   moq: number;
+  unit: ProductUnit;
+  orderStep: number;
+  packSize: number;
+  stock: number;
   sizes: string[];
   sizeRange: string;
   colors: ProductColor[];

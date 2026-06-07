@@ -4,11 +4,12 @@ import { Fragment, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { useBuyerStore } from "@/lib/stores/buyer-store";
-import { formatPrice } from "@/lib/utils";
+import type { DemoCommerceBuyerOrder } from "@/lib/demo-commerce/client";
+import { useServerCommerceStore } from "@/lib/stores/server-commerce-store";
+import { formatPrice, getProductUnit } from "@/lib/utils";
 
 export function BuyerOrders() {
-  const orders = useBuyerStore((state) => state.orders);
+  const orders = useServerCommerceStore((state) => state.orders);
   const [openOrderId, setOpenOrderId] = useState<string | null>(orders[0]?.id ?? null);
 
   return (
@@ -136,7 +137,7 @@ interface OrderDetailsProps {
   brand: string;
   brandContact: string;
   brandEmail: string;
-  items: ReturnType<typeof useBuyerStore.getState>["orders"][number]["items"];
+  items: DemoCommerceBuyerOrder["items"];
   total: number;
 }
 
@@ -149,7 +150,7 @@ function OrderDetails({ brand, brandContact, brandEmail, items, total }: OrderDe
           {items.map((item) => (
             <div key={`${item.product.id}-${item.quantity}`} className="grid gap-2 border-b border-border pb-3 text-sm md:grid-cols-[1fr_auto_auto] md:gap-4">
               <span>{item.product.name}</span>
-              <span className="text-muted">{item.quantity} шт.</span>
+              <span className="text-muted">{item.quantity} {getProductUnit(item.product)}</span>
               <span className="font-medium">{formatPrice(item.product.wholesalePrice * item.quantity)}</span>
             </div>
           ))}

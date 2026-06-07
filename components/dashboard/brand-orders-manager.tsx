@@ -1,31 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { brandOrders, type BrandOrder, type BrandOrderStatus } from "@/lib/mock/dashboard/brand-dashboard";
+import { demoBrandCompany as brandCompany } from "@/lib/demo-companies";
+import type { DemoCommerceOrderStatus } from "@/lib/demo-commerce/client";
+import { useServerCommerceStore } from "@/lib/stores/server-commerce-store";
 import { formatPrice } from "@/lib/utils";
 
-const statuses: BrandOrderStatus[] = ["Новый", "В обработке", "Отправлен", "Выполнен", "Отменён"];
+const statuses: DemoCommerceOrderStatus[] = ["Новый", "В обработке", "Отправлен", "Выполнен", "Отменён"];
 
 export function BrandOrdersManager() {
-  const [orders, setOrders] = useState<BrandOrder[]>(brandOrders);
-  const [openOrderId, setOpenOrderId] = useState<string | null>(brandOrders[0]?.id ?? null);
-
-  function updateStatus(orderId: string, status: BrandOrderStatus) {
-    setOrders((currentOrders) =>
-      currentOrders.map((order) => (order.id === orderId ? { ...order, status } : order))
-    );
-  }
+  const orders = useServerCommerceStore((state) => state.brandOrders);
+  const updateStatus = useServerCommerceStore((state) => state.updateStatus);
+  const [openOrderId, setOpenOrderId] = useState<string | null>(orders[0]?.id ?? null);
 
   return (
     <main className="px-4 py-10 md:px-10 md:py-12">
       <div className="max-w-7xl">
         <div className="border-b border-border pb-6">
           <p className="text-xs uppercase tracking-[0.22em] text-muted">Продажи</p>
-          <h1 className="mt-4 text-3xl font-medium tracking-normal md:text-5xl">Заказы</h1>
+          <h1 className="mt-4 text-3xl font-medium tracking-normal md:text-5xl">
+            Заказы {brandCompany.brandName}
+          </h1>
         </div>
 
         <div className="mt-8 grid gap-4 md:hidden">
@@ -61,7 +59,9 @@ export function BrandOrdersManager() {
                 <div className="mt-4 grid gap-2">
                   <select
                     value={order.status}
-                    onChange={(event) => updateStatus(order.id, event.target.value as BrandOrderStatus)}
+                    onChange={(event) => {
+                      void updateStatus(order.id, event.target.value as DemoCommerceOrderStatus);
+                    }}
                     className="h-11 border border-border bg-surface px-3 text-sm focus:border-foreground focus:outline-none"
                     aria-label={`Изменить статус заказа ${order.id}`}
                   >
@@ -89,7 +89,7 @@ export function BrandOrdersManager() {
                         <div key={`${order.id}-${item.name}-mobile`} className="border-b border-border pb-3 text-sm">
                           <div className="flex justify-between gap-4">
                             <span>{item.name}</span>
-                            <span className="text-muted">{item.quantity} шт.</span>
+                            <span className="text-muted">{item.quantity} {item.unit}</span>
                           </div>
                           <p className="mt-1 text-right font-medium">{formatPrice(item.price * item.quantity)}</p>
                         </div>
@@ -143,7 +143,9 @@ export function BrandOrdersManager() {
                           <StatusBadge>{order.status}</StatusBadge>
                           <select
                             value={order.status}
-                            onChange={(event) => updateStatus(order.id, event.target.value as BrandOrderStatus)}
+                            onChange={(event) => {
+                              void updateStatus(order.id, event.target.value as DemoCommerceOrderStatus);
+                            }}
                             className="h-9 border border-border bg-surface px-3 text-xs focus:border-foreground focus:outline-none"
                             aria-label={`Изменить статус заказа ${order.id}`}
                           >
@@ -179,7 +181,7 @@ export function BrandOrdersManager() {
                                     className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border pb-3 text-sm"
                                   >
                                     <span>{item.name}</span>
-                                    <span className="text-muted">{item.quantity} шт.</span>
+                                    <span className="text-muted">{item.quantity} {item.unit}</span>
                                     <span>{formatPrice(item.price * item.quantity)}</span>
                                   </div>
                                 ))}

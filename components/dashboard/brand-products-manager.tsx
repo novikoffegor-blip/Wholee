@@ -1,15 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImagePlus, Plus, X } from "lucide-react";
 
 import { TextareaField, TextField, SelectField } from "@/components/auth/form-field";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
-import { brandProducts, type BrandDashboardProduct, type BrandProductStatus } from "@/lib/mock/dashboard/brand-dashboard";
-import { formatPrice } from "@/lib/utils";
+import type { DemoCommerceBrandProduct } from "@/lib/demo-commerce/client";
+import { useServerCommerceStore } from "@/lib/stores/server-commerce-store";
+import { formatPrice, getProductUnit } from "@/lib/utils";
+import type { ProductUnit } from "@/types";
 
+type BrandDashboardProduct = DemoCommerceBrandProduct;
+type BrandProductStatus = BrandDashboardProduct["status"];
 type ProductCategory = BrandDashboardProduct["category"];
 
 const emptyForm = {
@@ -18,21 +22,42 @@ const emptyForm = {
   description: "",
   wholesalePrice: "",
   moq: "",
+  unit: "пар" as ProductUnit,
+  orderStep: "2",
+  packSize: "2",
   stock: "",
   status: "Активен" as BrandProductStatus
 };
 
+function getDefaultUnit(category: ProductCategory): ProductUnit {
+  return category === "Сумки" || category === "Аксессуары" ? "шт." : "пар";
+}
+
 export function BrandProductsManager() {
-  const [products, setProducts] = useState<BrandDashboardProduct[]>(brandProducts);
+  const serverProducts = useServerCommerceStore((state) => state.brandProducts);
+  const [products, setProducts] = useState<BrandDashboardProduct[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formValues, setFormValues] = useState(emptyForm);
+
+  useEffect(() => {
+    if (serverProducts.length > 0) {
+      setProducts(serverProducts);
+    }
+  }, [serverProducts]);
 
   function deleteProduct(productId: string) {
     setProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));
   }
 
   function saveProduct() {
-    if (!formValues.name || !formValues.wholesalePrice || !formValues.moq || !formValues.stock) {
+    if (
+      !formValues.name ||
+      !formValues.wholesalePrice ||
+      !formValues.moq ||
+      !formValues.orderStep ||
+      !formValues.packSize ||
+      !formValues.stock
+    ) {
       return;
     }
 
@@ -47,6 +72,9 @@ export function BrandProductsManager() {
       wholesalePrice: Number(formValues.wholesalePrice),
       retailPrice: Number(formValues.wholesalePrice) * 2,
       moq: Number(formValues.moq),
+      unit: formValues.unit,
+      orderStep: Number(formValues.orderStep),
+      packSize: Number(formValues.packSize),
       sizes: ["One Size"],
       sizeRange: "one size",
       colors: ["чёрный"],
@@ -98,11 +126,19 @@ export function BrandProductsManager() {
               <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm">
                 <div>
                   <dt className="text-muted">Оптовая цена</dt>
-                  <dd className="mt-1 font-medium">{formatPrice(product.wholesalePrice)}</dd>
+                  <dd className="mt-1 font-medium">{formatPrice(product.wholesalePrice)} / {getProductUnit(product)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted">MOQ</dt>
-                  <dd className="mt-1 font-medium">{product.moq} шт.</dd>
+                  <dd className="mt-1 font-medium">{product.moq} {getProductUnit(product)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted">Шаг заказа</dt>
+                  <dd className="mt-1 font-medium">{product.orderStep} {getProductUnit(product)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted">На складе</dt>
+                  <dd className="mt-1 font-medium">{product.stock} {getProductUnit(product)}</dd>
                 </div>
               </dl>
               <div className="mt-4 grid grid-cols-2 gap-2">
@@ -118,7 +154,7 @@ export function BrandProductsManager() {
         </div>
 
         <div className="mt-8 hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-[0.16em] text-muted">
                 <th className="py-4 font-medium">Фото</th>
@@ -126,6 +162,8 @@ export function BrandProductsManager() {
                 <th className="py-4 font-medium">Категория</th>
                 <th className="py-4 font-medium">Оптовая цена</th>
                 <th className="py-4 font-medium">MOQ</th>
+                <th className="py-4 font-medium">Шаг / упаковка</th>
+                <th className="py-4 font-medium">Остаток</th>
                 <th className="py-4 font-medium">Статус</th>
                 <th className="py-4 text-right font-medium">Действия</th>
               </tr>
@@ -143,8 +181,12 @@ export function BrandProductsManager() {
                     <p className="mt-1 text-xs text-muted">{product.sku}</p>
                   </td>
                   <td className="py-4 text-muted">{product.category}</td>
-                  <td className="py-4">{formatPrice(product.wholesalePrice)}</td>
-                  <td className="py-4">{product.moq} шт.</td>
+                  <td className="py-4">{formatPrice(product.wholesalePrice)} / {getProductUnit(product)}</td>
+                  <td className="py-4">{product.moq} {getProductUnit(product)}</td>
+                  <td className="py-4 text-muted">
+                    {product.orderStep} / {product.packSize} {getProductUnit(product)}
+                  </td>
+                  <td className="py-4">{product.stock} {getProductUnit(product)}</td>
                   <td className="py-4">
                     <StatusBadge>{product.status}</StatusBadge>
                   </td>
@@ -192,9 +234,18 @@ export function BrandProductsManager() {
               <SelectField
                 label="Категория"
                 value={formValues.category}
-                onChange={(event) =>
-                  setFormValues((values) => ({ ...values, category: event.target.value as ProductCategory }))
-                }
+                onChange={(event) => {
+                  const category = event.target.value as ProductCategory;
+                  const unit = getDefaultUnit(category);
+
+                  setFormValues((values) => ({
+                    ...values,
+                    category,
+                    unit,
+                    orderStep: unit === "пар" ? "2" : "4",
+                    packSize: unit === "пар" ? "2" : "4"
+                  }));
+                }}
               >
                 <option value="Кроссовки">Кроссовки</option>
                 <option value="Лоферы">Лоферы</option>
@@ -211,19 +262,41 @@ export function BrandProductsManager() {
                 />
               </div>
               <TextField
-                label="Оптовая цена за единицу (₽)"
+                label={`Оптовая цена за ${formValues.unit} (₽)`}
                 type="number"
                 value={formValues.wholesalePrice}
                 onChange={(event) => setFormValues((values) => ({ ...values, wholesalePrice: event.target.value }))}
               />
+              <SelectField
+                label="Единица измерения"
+                value={formValues.unit}
+                onChange={(event) =>
+                  setFormValues((values) => ({ ...values, unit: event.target.value as ProductUnit }))
+                }
+              >
+                <option value="пар">Пары</option>
+                <option value="шт.">Штуки</option>
+              </SelectField>
               <TextField
-                label="MOQ — минимальный объём заказа (шт.)"
+                label={`MOQ — минимальный заказ (${formValues.unit})`}
                 type="number"
                 value={formValues.moq}
                 onChange={(event) => setFormValues((values) => ({ ...values, moq: event.target.value }))}
               />
               <TextField
-                label="Доступное количество на складе (шт.)"
+                label={`Шаг заказа (${formValues.unit})`}
+                type="number"
+                value={formValues.orderStep}
+                onChange={(event) => setFormValues((values) => ({ ...values, orderStep: event.target.value }))}
+              />
+              <TextField
+                label={`В упаковке (${formValues.unit})`}
+                type="number"
+                value={formValues.packSize}
+                onChange={(event) => setFormValues((values) => ({ ...values, packSize: event.target.value }))}
+              />
+              <TextField
+                label={`Доступно на складе (${formValues.unit})`}
                 type="number"
                 value={formValues.stock}
                 onChange={(event) => setFormValues((values) => ({ ...values, stock: event.target.value }))}
